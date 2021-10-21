@@ -1,27 +1,3 @@
-'''
-MIT License
-
-Copyright (c) 2021 Marcelo de Oliveira Rosa Prates
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-'''
-
 import re
 from collections.abc import Iterable
 
@@ -34,8 +10,40 @@ from shapely.geometry import box, Polygon, MultiLineString, GeometryCollection
 from shapely.affinity import translate, scale, rotate
 from descartes import PolygonPatch
 from tabulate import tabulate
+from IPython.display import Markdown, display
 
 from .fetch import get_perimeter, get_layer
+
+
+# Helper functions
+def get_hash(key):
+    return frozenset(key.items()) if type(key) == dict else key
+
+
+# Drawing functions
+def show_palette(palette, description=""):
+    """
+    Helper to display palette in Markdown
+    """
+
+    colorboxes = [
+        f"![](https://placehold.it/30x30/{c[1:]}/{c[1:]}?text=)" for c in palette
+    ]
+
+    display(Markdown((description)))
+    display(Markdown(tabulate(pd.DataFrame(colorboxes), showindex=False)))
+
+
+def get_patch(shape, **kwargs):
+    """
+    Convert shapely object to matplotlib patch
+    """
+    # if type(shape) == Path:
+    #    return patches.PathPatch(shape, **kwargs)
+    if type(shape) == Polygon and shape.area > 0:
+        return PolygonPatch(list(zip(*shape.exterior.xy)), **kwargs)
+    else:
+        return None
 
 
 # Plot a single shape
@@ -117,12 +125,7 @@ def transform(layers, x, y, scale_x, scale_y, rotation):
 
 
 def draw_text(ax, text, x, y, **kwargs):
-    if 'bbox' in kwargs:
-        bbox_kwargs = kwargs.pop('bbox')
-        text = ax.text(x, y, text, **kwargs)
-        text.set_bbox(**bbox_kwargs)
-    else:
-        text = ax.text(x, y, text, **kwargs)
+    ax.text(x, y, text, **kwargs)
 
 
 # Plot
@@ -154,54 +157,6 @@ def plot(
     scale_y=None,
     rotation=None,
 ):
-    """
-    
-    Draw a map from OpenStreetMap data.
-    
-    Parameters
-    ----------
-    query : string
-        The address to geocode and use as the central point around which to get the geometries
-    backup : dict
-        (Optional) feed the output from a previous 'plot()' run to save time
-    postprocessing: function
-        (Optional) Apply a postprocessing step to the 'layers' dict
-    radius
-        (Optional) If not None, draw the map centered around the address with this radius (in meters)
-    layers: dict
-        Specify the name of each layer and the OpenStreetMap tags to fetch
-    drawing_kwargs: dict
-        Drawing params for each layer (matplotlib params such as 'fc', 'ec', 'fill', etc.)
-    osm_credit: dict
-        OSM Caption parameters
-    figsize: Tuple
-        (Optional) Width and Height (in inches) for the Matplotlib figure. Defaults to (10, 10)
-    ax: axes
-        Matplotlib axes
-    title: String
-        (Optional) Title for the Matplotlib figure
-    vsketch: Vsketch
-        (Optional) Vsketch object for pen plotting
-    x: float
-        (Optional) Horizontal displacement
-    y: float
-        (Optional) Vertical displacement
-    scale_x: float
-        (Optional) Horizontal scale factor
-    scale_y: float
-        (Optional) Vertical scale factor
-    rotation: float
-        (Optional) Rotation in angles (0-360)
-    
-    Returns
-    -------
-    layers: dict
-        Dictionary of layers (each layer is a Shapely MultiPolygon)
-    
-    Notes
-    -----
-    
-    """
 
     # Interpret query
     query_mode = parse_query(query)
@@ -260,7 +215,7 @@ def plot(
 
     # Plot background
     if "background" in drawing_kwargs:
-        geom = scale(box(*layers["perimeter"].bounds), 1.2, 1.2)
+        geom = scale(box(*layers["perimeter"].bounds), 2, 2)
 
         if vsketch is None:
             ax.add_patch(PolygonPatch(geom, **drawing_kwargs["background"]))
@@ -311,7 +266,7 @@ def plot(
             (
                 osm_credit["text"]
                 if "text" in osm_credit
-                else "data © OpenStreetMap contributors\ngithub.com/marceloprates/prettymaps"
+                else ""
             ),
             x=xmin + (osm_credit["x"] * dx if "x" in osm_credit else 0),
             y=ymax - 4 * d - (osm_credit["y"] * dy if "y" in osm_credit else 0),

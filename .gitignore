@@ -1,3 +1,5 @@
 *.py[cod]
 *.egg-info
 cache
+./water-polygons-split-4326/*
+prints/*
